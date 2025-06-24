@@ -17,17 +17,23 @@ def omml_to_latex(node):
         return node.text or ""
     elif tag == 'sSup':
         base = omml_to_latex(node.find('m:e', NS))
-        sup = omml_to_latex(node.find('m:sup', NS))
-        return f"{base}^{{{sup}}}"
+        sub = omml_to_latex(node.find('m:sup', NS))
+        return f"{base}^{{{sub}}}"
     elif tag == 'sSub':
         base = omml_to_latex(node.find('m:e', NS))
         sub = omml_to_latex(node.find('m:sub', NS))
         return f"{base}_{{{sub}}}"
     elif tag == 'nary':
+        chr_node = node.find('m:chr', NS)
+        symbol = chr_node.attrib.get(f'{{{NS["m"]}}}val', '') if chr_node is not None else ''
         sub = omml_to_latex(node.find('m:sub', NS))
         sup = omml_to_latex(node.find('m:sup', NS))
-        expr = omml_to_latex(node.find('m:e', NS))
-        return f"\\int_{{{sub}}}^{{{sup}}} {expr}"
+        expr_nodes = node.findall('m:e', NS)
+        expr = ' '.join(omml_to_latex(e) for e in expr_nodes)
+        if symbol == '∑':
+            return f"\\sum_{{{sub}}}^{{{sup}}} {expr}"
+        else:
+            return f"\\int_{{{sub}}}^{{{sup}}} {expr}"
     elif tag == 'f':
         num = omml_to_latex(node.find('m:num', NS))
         den = omml_to_latex(node.find('m:den', NS))
@@ -68,8 +74,7 @@ def extract_equations_from_paragraph(para_element):
         if latex:
             latex_text.append(f"\\({latex}\\)")
 
-    return ' '.join(latex_text)
-
+    return ''.join(latex_text)
 
 def read_questions_from_docx(file_path, code, image_folder="static/images"):
     doc = Document(file_path)
@@ -96,11 +101,18 @@ def read_questions_from_docx(file_path, code, image_folder="static/images"):
 
         if combined:
             if not re.match(r"^[A-D]\.", combined):
-                combined = re.sub(r"^Câu\s*\d+[.:]?", "", combined).strip()
-                current_question["question"].append(combined)
+                combined = re.sub(r"^Câu\s*\d+[.:]?", "", combined)
+                current_question["question"].append(combined.strip())
+                pending_option_line = ""
             else:
-                option_text = re.sub(r"^[A-D]\.\s*", "", combined)
-                current_question["options"].append(option_text)
+                pending_option_line += " " + combined.strip()
+                options_found = re.findall(r"[A-D]\.\s*([^A-D]*)", pending_option_line)
+
+                if len(options_found) >= 4:
+                    current_question["options"].extend([opt.strip() for opt in options_found[:4]])
+                    questions.append(current_question)
+                    current_question = {"question": [], "options": [], "answer": None}
+                    pending_option_line = ""
 
         # Xử lý ảnh trong đoạn văn
         for run in para.runs:
@@ -122,5 +134,5 @@ def read_questions_from_docx(file_path, code, image_folder="static/images"):
                 "options": [],
                 "answer": None
             }
-
-    return questions
+    print(questions)
+    return questions    
