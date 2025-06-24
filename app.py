@@ -98,7 +98,7 @@ app.register_blueprint(upload_bp)
 app.register_blueprint(xuli_dethi_bp)
 app.register_blueprint(cham_bai_bp)
 app.register_blueprint(xuat_excel_bp)
-
+init_db()
 if __name__ == "__main__":
     init_db()
     app.run(host='0.0.0.0', port=5000, debug=True)
